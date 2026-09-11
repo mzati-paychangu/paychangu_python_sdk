@@ -4,22 +4,47 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "paychangu"
-version = "0.0.1"
+version = "0.1.0"
 authors = [
     {name = "PayChangu", email = "danielonions@paychangu.com"},
 ]
-description = "Python SDK for PayChangu Level"
+description = "Official-style Python SDK for the PayChangu payment API"
 readme = "README.md"
-requires-python = ">=3.7"
+requires-python = ">=3.9"
+license = {text = "MIT"}
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "requests>=2.25.1",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "responses>=0.25.0",
+]
+
 [project.urls]
-"Homepage" = "https://github.com/yourusername/paychangu-sdk"
-"Bug Tracker" = "https://github.com/yourusername/paychangu-sdk/issues" 
+Homepage = "https://github.com/mzati-paychangu/paychangu_python_sdk"
+Documentation = "https://developer.paychangu.com"
+"Bug Tracker" = "https://github.com/mzati-paychangu/paychangu_python_sdk/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,4 +1,4 @@
-"""Request models for payouts."""
+"""Request models for direct charges (MoMo and bank transfer)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from .._utils import dataclass_payload, stringify_amount
 
 
 @dataclass
-class MobileMoneyPayout:
-    """Payload for ``POST /mobile-money/payouts/initialize``."""
+class MobileMoneyCharge:
+    """Payload for ``POST /mobile-money/payments/initialize``."""
 
     mobile: str
     mobile_money_operator_ref_id: str
@@ -19,7 +19,6 @@ class MobileMoneyPayout:
     email: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    transaction_status: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         data = dataclass_payload(self)
@@ -27,23 +26,19 @@ class MobileMoneyPayout:
         return data
 
 
-# Backwards-compatible alias used in docs historically.
-Payout = MobileMoneyPayout
-
-
 @dataclass
-class BankPayout:
-    """Payload for ``POST /direct-charge/payouts/initialize``."""
+class BankTransferCharge:
+    """Payload for ``POST /direct-charge/payments/initialize``."""
 
-    bank_uuid: str
     amount: Union[int, float, str]
     charge_id: str
-    bank_account_name: str
-    bank_account_number: str
-    payout_method: str = "bank_transfer"
+    currency: str = "MWK"
+    payment_method: str = "mobile_bank_transfer"
     email: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    mobile: Optional[str] = None
+    create_permanent_account: Optional[bool] = None
 
     def to_dict(self) -> dict[str, Any]:
         data = dataclass_payload(self)

@@ -1,163 +1,213 @@
 # PayChangu SDK for Python
 
-A powerful and easy-to-use Python SDK for integrating PayChangu payment services into your applications. This SDK provides seamless access to PayChangu's suite of payment solutions including Mobile Money payments, payouts, airtime purchases, and direct charges.
+Python SDK for the [PayChangu](https://developer.paychangu.com) payment API. Accept hosted checkout, mobile money, bank transfer, and card payments; send MoMo and bank payouts; pay bills and airtime; and verify webhooks.
 
-## Features
-
-- Mobile Money Payments
-- Mobile Money Payouts 
-- Airtime Purchase
-- Direct Mobile Money Charges
-- Simple API Integration
-- Comprehensive Error Handling
-- Type Hints Support
-- Python 3.7+ Compatible
+Requires **Python 3.9+**.
 
 ## Installation
-
-You can install the PayChangu SDK using pip:
 
 ```bash
 pip install paychangu
 ```
 
-## Usage
+From source:
 
-To use the PayChangu SDK, you need to create an instance of the `PayChanguClient` class with your secret key:
-
-```python
-from paychangu import PayChanguClient
-
-client = PayChanguClient(secret_key="your_secret_key")
+```bash
+pip install -e ".[dev]"
 ```
 
-### Level
-
-#### Initiate a Transaction
+## Quick start
 
 ```python
-from paychangu.models.payment import Payment
+from paychangu import PayChanguClient, Payment
+
+client = PayChanguClient(secret_key="SEC-your-secret-key")
+
 payment = Payment(
-    amount=100,
+    amount=1000,
     currency="MWK",
-    email="user@example.com",
-    first_name="John",
-    last_name="Doe",
     callback_url="https://example.com/callback",
     return_url="https://example.com/return",
-    tx_ref="unique_transaction_reference",
-    customization={
-        "title": "Test Payment",
-        "description": "Payment Description",
-    },
-    meta={
-        "uuid": "uuid",
-        "response": "Response",
-    },
+    tx_ref="unique-tx-ref",
+    first_name="John",
+    last_name="Doe",
+    email="user@example.com",
+    customization={"title": "Order #1", "description": "Checkout"},
 )
-response = client.initiate_transaction(payment)
-print(response)
+session = client.payments.initiate(payment)
+# session["data"]["checkout_url"]
+
+status = client.payments.verify("unique-tx-ref")
 ```
 
-
-#### Verify a Transaction
+Use a context manager to close the HTTP session:
 
 ```python
-tx_ref = "unique_transaction_reference"
-response = client.verify_transaction(tx_ref)
-print(response)
+with PayChanguClient(secret_key="SEC-...") as client:
+    print(client.wallet.balance("MWK"))
 ```
 
-### Payout
+## Features
 
-#### Get Payout Operators
+| Area | Client API |
+|------|------------|
+| Hosted checkout | `client.payments.initiate` / `verify` |
+| MoMo direct charge | `client.direct_charge.operators` / `initialize` / `verify` / `details` |
+| Bank transfer charge | `client.direct_charge.initialize_bank_transfer` / `bank_transfer_details` |
+| MoMo payouts | `client.payouts.momo_operators` / `initiate_momo` / `momo_details` |
+| Bank payouts | `client.payouts.banks` / `initiate_bank` / `bank_details` / `list_bank_payouts` |
+| Bills & airtime | `client.bills.billers` / `validate` / `pay` / `buy_airtime` / … |
+| Cards | `client.cards.charge` / `verify` / `refund` |
+| Wallet | `client.wallet.balance` |
+| Webhooks | `paychangu.verify_signature` |
+
+API reference: [developer.paychangu.com](https://developer.paychangu.com/llms.txt).
+
+## Usage examples
+
+### Direct MoMo charge
 
 ```python
-operators = client.payout_service.get_operators()
-print(operators)
-```
+from paychangu import MobileMoneyCharge
 
-#### Initiate a Payout
+operators = client.direct_charge.operators()
+op_ref = operators["data"][0]["ref_id"]
 
-```python
-from paychangu.models.payout import Payout
-payout = Payout(
-amount=100,
-currency="MWK",
-mobile_number="1234567890",
-network="TNM",
-reference="unique_payout_reference",
-callback_url="https://example.com/callback",
+result = client.direct_charge.initialize(
+    MobileMoneyCharge(
+        mobile="265999000111",
+        mobile_money_operator_ref_id=op_ref,
+        amount=500,
+        charge_id="charge-unique-1",
+        first_name="John",
+    )
 )
-response = client.payout_service.initiate_payout(payout)
-print(response)
+client.direct_charge.verify("charge-unique-1")
 ```
 
-#### Fetch Transfer Details
+### MoMo payout
 
 ```python
-charge_id = "jvivuiviu"
-response = client.payout_service.fetch_transfer(charge_id)
-print(response)
+from paychangu import MobileMoneyPayout
+
+client.payouts.initiate_momo(
+    MobileMoneyPayout(
+        mobile="265999000111",
+        mobile_money_operator_ref_id=op_ref,
+        amount=1000,
+        charge_id="payout-unique-1",
+    )
+)
 ```
 
-
-### Airtime
-
-#### Get Airtime Operators
+### Bank payout
 
 ```python
-operators = client.airtime_service.get_operators()
-print(operators)
+from paychangu import BankPayout
+
+banks = client.payouts.banks(currency="MWK")
+bank_uuid = banks["data"][0]["uuid"]
+
+client.payouts.initiate_bank(
+    BankPayout(
+        bank_uuid=bank_uuid,
+        amount=3000,
+        charge_id="bank-payout-1",
+        bank_account_name="Jane Doe",
+        bank_account_number="1000000010",
+    )
+)
 ```
 
-#### Create an Airtime Bill
+### Bills and airtime
 
 ```python
-amount = 100
-phone_number = "1234567890"
-operator_id = "airtel"
-response = client.airtime_service.create_bill(amount, phone_number, operator_id)
-print(response)
+from paychangu import AirtimePurchase, BillPayment
+
+client.bills.billers()
+client.bills.validate(biller="escom", account="917535617", amount=10000)
+client.bills.pay(
+    BillPayment(
+        biller="escom",
+        account="917535617",
+        amount=10000,
+        customer_name="John Phiri",
+        reference="FY826245",
+    )
+)
+client.bills.buy_airtime(AirtimePurchase(phone="098000099", amount=1000, reference="PC62537"))
 ```
 
-### Direct Charge MoMo
+### Card charge (PCI)
 
-#### Get Supported Operators
+Only call card APIs from a **PCI-compliant** environment. Prefer hosted checkout when you do not need to handle PAN/CVV yourself.
 
 ```python
-operators = client.direct_charge_service.get_supported_operators()
-print(operators)
+from paychangu import CardCharge
+
+client.cards.charge(
+    CardCharge(
+        card_number="4242424242424242",
+        expiry="12/30",
+        cvv="123",
+        cardholder_name="John Doe",
+        amount=1000,
+        currency="USD",
+        charge_id="charge_12345",
+        redirect_url="https://example.com/redirect",
+        email="user@example.com",
+    )
+)
+client.cards.verify("charge_12345")
 ```
 
-#### Initialize a Direct Charge
+### Webhook verification
 
 ```python
-amount = 100
-currency = "MWK"
-mobile_number = "1234567890"
-network = "airtel"
-reference = "unique_payment_reference"
-response = client.direct_charge_service.initialize_payment(amount, currency, mobile_number, network, reference)
-print(response)
+from paychangu import verify_signature
+
+ok = verify_signature(
+    payload=request_body,  # raw bytes or str
+    signature=request_headers["Signature"],
+    secret="your_webhook_secret",
+)
+if not ok:
+    # reject the request
+    ...
 ```
 
-#### Verify a Direct Charge
+### Errors
 
 ```python
-charge_id = "charge_id_from_initialize_payment_response"
-response = client.direct_charge_service.verify_charge(charge_id)
-print(response)
+from paychangu import APIError, AuthenticationError, ValidationError
+
+try:
+    client.wallet.balance()
+except ValidationError as exc:
+    print(exc.status_code, exc.message, exc.body)
+except AuthenticationError as exc:
+    print("Check your secret key", exc)
+except APIError as exc:
+    print(exc)
 ```
 
-#### Get Charge Details
+## Development
 
-```python
-charge_id = "charge_id_from_initialize_payment_response"
-response = client.direct_charge_service.get_charge_details(charge_id)
-print(response)
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+pytest
 ```
+
+## Breaking changes in 0.1.0
+
+- MoMo payouts now use `mobile`, `mobile_money_operator_ref_id`, and `charge_id` (aligned with the live API).
+- Airtime uses `POST /bills/buy-airtime` via `client.bills.buy_airtime` (old `/bill_payment/*` paths removed).
+- Resource access is via `client.payments`, `client.direct_charge`, `client.payouts`, `client.bills`, `client.cards`, and `client.wallet`. Legacy aliases (`initiate_transaction`, `direct_charge_service`, …) remain where practical.
+- Python 3.9+ is required.
 
 ## Support
 
-For support, email support@paychangu.com or visit our [support page](https://paychangu.com/support).
+- Docs: [developer.paychangu.com](https://developer.paychangu.com)
+- Email: support@paychangu.com

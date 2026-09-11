@@ -1,100 +1,133 @@
-import requests
+"""PayChangu API client."""
+
+from __future__ import annotations
+
+from typing import Any, Optional, Union
+
+from ._http import DEFAULT_BASE_URL, DEFAULT_TIMEOUT, HttpClient
 from .models.payment import Payment
-from .models.payout import Payout
-from .utils.http import handle_response
+from .models.payout import MobileMoneyPayout
+from .resources.bills import BillsResource
+from .resources.cards import CardsResource
+from .resources.direct_charge import DirectChargeResource
+from .resources.payments import PaymentsResource
+from .resources.payouts import PayoutsResource
+from .resources.wallet import WalletResource
+
 
 class PayChanguClient:
-    BASE_URL = "https://api.paychangu.com"
+    """
+    High-level client for the PayChangu API.
 
-    def __init__(self, secret_key):
-        self.secret_key = secret_key
-        self.headers = {
-            "Accept": "application/json",
-            "Authorization": f"Bearer {self.secret_key}",
-        }
-        self.payout_service = self.PayoutService(self)
-        self.airtime_service = self.AirtimeService(self)
-        self.direct_charge_service = self.DirectChargeService(self)
+    Example::
 
-    def initiate_transaction(self, payment: Payment):
-        url = f"{self.BASE_URL}/payment"
-        payload = payment.to_dict()
-        response = requests.post(url, json=payload, headers=self.headers)
-        return handle_response(response)
+        from paychangu import PayChanguClient
 
-    def verify_transaction(self, tx_ref: str):
-        url = f"{self.BASE_URL}/verify-payment/{tx_ref}"
-        response = requests.get(url, headers=self.headers)
-        return handle_response(response)
+        client = PayChanguClient(secret_key="SEC-...")
+        balance = client.wallet.balance("MWK")
+    """
 
-    class PayoutService:
-        def __init__(self, client):
-            self.client = client
+    def __init__(
+        self,
+        secret_key: str,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> None:
+        self._http = HttpClient(secret_key, base_url=base_url, timeout=timeout)
+        self.payments = PaymentsResource(self._http)
+        self.direct_charge = DirectChargeResource(self._http)
+        self.payouts = PayoutsResource(self._http)
+        self.bills = BillsResource(self._http)
+        self.cards = CardsResource(self._http)
+        self.wallet = WalletResource(self._http)
 
-        def get_operators(self):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money/"
-            response = requests.get(url, headers=self.client.headers)
-            return handle_response(response)
+        # Backwards-compatible service aliases from earlier SDK versions.
+        self.payout_service = _LegacyPayoutService(self)
+        self.airtime_service = _LegacyAirtimeService(self)
+        self.direct_charge_service = _LegacyDirectChargeService(self)
 
-        def initiate_payout(self, payout: Payout):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money/payouts/initialize"
-            payload = payout.to_dict()
-            response = requests.post(url, json=payload, headers=self.client.headers)
-            return handle_response(response)
+    def initiate_transaction(self, payment: Union[Payment, dict[str, Any]]) -> Any:
+        """Alias for ``client.payments.initiate``."""
+        return self.payments.initiate(payment)
 
-        def fetch_transfer(self, charge_id: str):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money/payments/{charge_id}/details"
-            response = requests.get(url, headers=self.client.headers)
-            return handle_response(response)
+    def verify_transaction(self, tx_ref: str) -> Any:
+        """Alias for ``client.payments.verify``."""
+        return self.payments.verify(tx_ref)
 
-    class AirtimeService:
-        def __init__(self, client):
-            self.client = client
+    def close(self) -> None:
+        """Close the underlying HTTP session."""
+        self._http.close()
 
-        def get_operators(self):
-            url = f"{PayChanguClient.BASE_URL}/bill_payment/get-operators"
-            response = requests.get(url, headers=self.client.headers)
-            return handle_response(response)
+    def __enter__(self) -> "PayChanguClient":
+        return self
 
-        def create_bill(self, amount: int, phone_number: str, operator_id: str):
-            url = f"{PayChanguClient.BASE_URL}/bill_payment/create"
-            payload = {
-                "amount": amount,
-                "phone_number": phone_number,
-                "operator_id": operator_id,
-            }
-            response = requests.post(url, json=payload, headers=self.client.headers)
-            return handle_response(response)
+    def __exit__(self, *args: object) -> None:
+        self.close()
 
-    class DirectChargeService:
-        def __init__(self, client):
-            self.client = client
 
-        def get_supported_operators(self):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money"
-            response = requests.get(url, headers=self.client.headers)
-            return handle_response(response)
+class _LegacyPayoutService:
+    """Compatibility wrapper matching the previous nested payout service API."""
 
-        def initialize_payment(self, mobile: str, mobile_money_operator_ref_id: str, amount: str, charge_id: str, email: str = None, first_name: str = None, last_name: str = None):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money/payments/initialize"
-            payload = {
-                "mobile": mobile,
-                "mobile_money_operator_ref_id": mobile_money_operator_ref_id,
-                "amount": amount,
-                "charge_id": charge_id,
-                "email": email,
-                "first_name": first_name,
-                "last_name": last_name,
-            }
-            response = requests.post(url, json=payload, headers=self.client.headers)
-            return handle_response(response)
+    def __init__(self, client: PayChanguClient) -> None:
+        self._client = client
 
-        def verify_charge(self, charge_id: str):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money/payments/{charge_id}/verify"
-            response = requests.get(url, headers=self.client.headers)
-            return handle_response(response)
+    def get_operators(self) -> Any:
+        return self._client.payouts.momo_operators()
 
-        def get_charge_details(self, charge_id: str):
-            url = f"{PayChanguClient.BASE_URL}/mobile-money/payments/{charge_id}/details"
-            response = requests.get(url, headers=self.client.headers)
-            return handle_response(response) 
+    def initiate_payout(self, payout: Union[MobileMoneyPayout, dict[str, Any]]) -> Any:
+        return self._client.payouts.initiate_momo(payout)
+
+    def fetch_transfer(self, charge_id: str) -> Any:
+        return self._client.payouts.momo_details(charge_id)
+
+
+class _LegacyAirtimeService:
+    """Compatibility wrapper; prefer ``client.bills.buy_airtime``."""
+
+    def __init__(self, client: PayChanguClient) -> None:
+        self._client = client
+
+    def buy_airtime(
+        self,
+        phone: str,
+        amount: Union[int, float, str],
+        reference: Optional[str] = None,
+    ) -> Any:
+        return self._client.bills.buy_airtime(phone=phone, amount=amount, reference=reference)
+
+
+class _LegacyDirectChargeService:
+    """Compatibility wrapper matching the previous nested direct-charge service API."""
+
+    def __init__(self, client: PayChanguClient) -> None:
+        self._client = client
+
+    def get_supported_operators(self) -> Any:
+        return self._client.direct_charge.operators()
+
+    def initialize_payment(
+        self,
+        mobile: str,
+        mobile_money_operator_ref_id: str,
+        amount: Union[int, float, str],
+        charge_id: str,
+        email: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+    ) -> Any:
+        return self._client.direct_charge.initialize(
+            mobile=mobile,
+            mobile_money_operator_ref_id=mobile_money_operator_ref_id,
+            amount=amount,
+            charge_id=charge_id,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+        )
+
+    def verify_charge(self, charge_id: str) -> Any:
+        return self._client.direct_charge.verify(charge_id)
+
+    def get_charge_details(self, charge_id: str) -> Any:
+        return self._client.direct_charge.details(charge_id)

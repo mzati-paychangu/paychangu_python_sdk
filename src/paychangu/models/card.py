@@ -1,4 +1,4 @@
-"""Request models for hosted checkout payments."""
+"""Request models for card charges."""
 
 from __future__ import annotations
 
@@ -9,20 +9,23 @@ from .._utils import dataclass_payload, stringify_amount
 
 
 @dataclass
-class Payment:
-    """Payload for ``POST /payment`` (hosted checkout / Level)."""
+class CardCharge:
+    """
+    Payload for ``POST /charge-card/payments``.
 
+    Card data must only be handled in a PCI-compliant environment.
+    Prefer hosted checkout or tokenization flows when possible.
+    """
+
+    card_number: str
+    expiry: str
+    cvv: str
+    cardholder_name: str
     amount: Union[int, float, str]
     currency: str
-    callback_url: str
-    return_url: str
-    tx_ref: Optional[str] = None
+    charge_id: str
+    redirect_url: str
     email: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    customization: Optional[dict[str, Any]] = None
-    meta: Optional[Any] = None
-    uuid: Optional[str] = None
 
     def to_dict(self) -> dict[str, Any]:
         data = dataclass_payload(self)
