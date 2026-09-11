@@ -9,9 +9,11 @@ from .models.payment import Payment
 from .models.payout import MobileMoneyPayout
 from .resources.bills import BillsResource
 from .resources.cards import CardsResource
+from .resources.connect import ConnectResource
 from .resources.direct_charge import DirectChargeResource
 from .resources.payments import PaymentsResource
 from .resources.payouts import PayoutsResource
+from .resources.virtual_accounts import VirtualAccountsResource
 from .resources.wallet import WalletResource
 
 
@@ -25,6 +27,11 @@ class PayChanguClient:
 
         client = PayChanguClient(secret_key="SEC-...")
         balance = client.wallet.balance("MWK")
+
+    For PayChangu Connect, build a client with the merchant's access token::
+
+        connected = PayChanguClient.from_access_token("access-token-from-redirect")
+        connected.payments.initiate(...)
     """
 
     def __init__(
@@ -34,6 +41,9 @@ class PayChanguClient:
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = DEFAULT_TIMEOUT,
     ) -> None:
+        self.secret_key = secret_key
+        self.base_url = base_url
+        self.timeout = timeout
         self._http = HttpClient(secret_key, base_url=base_url, timeout=timeout)
         self.payments = PaymentsResource(self._http)
         self.direct_charge = DirectChargeResource(self._http)
@@ -41,11 +51,31 @@ class PayChanguClient:
         self.bills = BillsResource(self._http)
         self.cards = CardsResource(self._http)
         self.wallet = WalletResource(self._http)
+        self.connect = ConnectResource(self._http)
+        self.virtual_accounts = VirtualAccountsResource(self._http)
 
         # Backwards-compatible service aliases from earlier SDK versions.
         self.payout_service = _LegacyPayoutService(self)
         self.airtime_service = _LegacyAirtimeService(self)
         self.direct_charge_service = _LegacyDirectChargeService(self)
+
+    @classmethod
+    def from_access_token(
+        cls,
+        access_token: str,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> "PayChanguClient":
+        """
+        Create a client that authenticates with a Connect access token.
+
+        Use this after a merchant authorizes your app and is redirected back
+        with an access token.
+        """
+        if not access_token:
+            raise ValueError("access_token is required")
+        return cls(secret_key=access_token, base_url=base_url, timeout=timeout)
 
     def initiate_transaction(self, payment: Union[Payment, dict[str, Any]]) -> Any:
         """Alias for ``client.payments.initiate``."""

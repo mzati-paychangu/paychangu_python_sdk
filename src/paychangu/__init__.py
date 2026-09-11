@@ -15,14 +15,16 @@ from .models import (
     BillPayment,
     BillValidation,
     CardCharge,
+    ConnectAuthorizeParams,
     MobileMoneyCharge,
     MobileMoneyPayout,
     Payment,
     Payout,
+    VirtualCustomer,
 )
-from .webhooks import verify_signature
+from .webhooks import verify_signature, verify_virtual_account_signature
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "APIError",
@@ -33,6 +35,7 @@ __all__ = [
     "BillPayment",
     "BillValidation",
     "CardCharge",
+    "ConnectAuthorizeParams",
     "MobileMoneyCharge",
     "MobileMoneyPayout",
     "NetworkError",
@@ -41,6 +44,8 @@ __all__ = [
     "Payment",
     "Payout",
     "ValidationError",
+    "VirtualCustomer",
     "__version__",
     "verify_signature",
+    "verify_virtual_account_signature",
 ]

@@ -1,6 +1,6 @@
 # PayChangu SDK for Python
 
-Python SDK for the [PayChangu](https://developer.paychangu.com) payment API. Accept hosted checkout, mobile money, bank transfer, and card payments; send MoMo and bank payouts; pay bills and airtime; and verify webhooks.
+Python SDK for the [PayChangu](https://developer.paychangu.com) payment API. Accept hosted checkout, mobile money, bank transfer, and card payments; send MoMo and bank payouts; pay bills and airtime; manage PayChangu Connect and US virtual accounts; and verify webhooks.
 
 Requires **Python 3.9+**.
 
@@ -59,7 +59,9 @@ with PayChanguClient(secret_key="SEC-...") as client:
 | Bills & airtime | `client.bills.billers` / `validate` / `pay` / `buy_airtime` / … |
 | Cards | `client.cards.charge` / `verify` / `refund` |
 | Wallet | `client.wallet.balance` |
-| Webhooks | `paychangu.verify_signature` |
+| Connect | `client.connect.authorize_link` / `user` / `revoke` |
+| US virtual accounts | `client.virtual_accounts.*` |
+| Webhooks | `verify_signature` / `verify_virtual_account_signature` |
 
 API reference: [developer.paychangu.com](https://developer.paychangu.com/llms.txt).
 
@@ -138,6 +140,48 @@ client.bills.pay(
 client.bills.buy_airtime(AirtimePurchase(phone="098000099", amount=1000, reference="PC62537"))
 ```
 
+### PayChangu Connect
+
+```python
+link = client.connect.authorize_link(
+    client_id="your_app_client_id",
+    redirect_uri="https://example.com/connect/callback",
+    mode="test",  # or "live"
+    scope="payments:write payments:read",
+    wh_url="https://example.com/webhooks/connect",
+)
+# Redirect the merchant to link["data"]["url"] (response shape may vary)
+
+# After redirect, use the access token for that merchant:
+connected = PayChanguClient.from_access_token("access-token-from-redirect")
+connected.payments.initiate(...)
+
+client.connect.user(access_token="access-token-from-redirect")
+client.connect.revoke("access-token-from-redirect")
+```
+
+### US virtual accounts
+
+```python
+from paychangu import VirtualCustomer, verify_virtual_account_signature
+
+customer = client.virtual_accounts.create_customer(
+    VirtualCustomer(email="john@example.com", first_name="John", last_name="Banda")
+)
+# Redirect user through KYC; wait for kyc_updated webhook, then:
+client.virtual_accounts.create_account(customer_id="cus_123")
+client.virtual_accounts.account_activity("cus_123")
+client.virtual_accounts.deactivate_account("cus_123")
+client.virtual_accounts.reactivate_account("cus_123")
+
+# Virtual-account webhooks sign the `data` object:
+ok = verify_virtual_account_signature(
+    data=webhook_json["data"],
+    signature=webhook_json["signature"],
+    secret="your_business_secret_key",
+)
+```
+
 ### Card charge (PCI)
 
 Only call card APIs from a **PCI-compliant** environment. Prefer hosted checkout when you do not need to handle PAN/CVV yourself.
@@ -200,8 +244,12 @@ pip install -e ".[dev]"
 pytest
 ```
 
-## Breaking changes in 0.1.0
+## Breaking changes in 0.2.0 / 0.1.0
 
+### 0.2.0
+- Added Connect and US virtual accounts; version bump only for new surface area.
+
+### 0.1.0
 - MoMo payouts now use `mobile`, `mobile_money_operator_ref_id`, and `charge_id` (aligned with the live API).
 - Airtime uses `POST /bills/buy-airtime` via `client.bills.buy_airtime` (old `/bill_payment/*` paths removed).
 - Resource access is via `client.payments`, `client.direct_charge`, `client.payouts`, `client.bills`, `client.cards`, and `client.wallet`. Legacy aliases (`initiate_transaction`, `direct_charge_service`, …) remain where practical.

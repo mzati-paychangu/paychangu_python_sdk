@@ -68,6 +68,12 @@ class HttpClient:
     def post(self, path: str, *, json: Payload = None, params: Params = None) -> Any:
         return self.request("POST", path, json=json, params=params)
 
+    def put(self, path: str, *, json: Payload = None, params: Params = None) -> Any:
+        return self.request("PUT", path, json=json, params=params)
+
+    def delete(self, path: str, *, params: Params = None, json: Payload = None) -> Any:
+        return self.request("DELETE", path, params=params, json=json)
+
     def close(self) -> None:
         self._session.close()
 

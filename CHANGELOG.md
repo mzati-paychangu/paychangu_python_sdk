@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+### Added
+- PayChangu Connect: `authorize_link`, `user`, `revoke`, and `PayChanguClient.from_access_token`
+- US virtual accounts: customer CRUD, create/deactivate/reactivate account, account activity
+- `verify_virtual_account_signature` for VA webhook HMAC verification
+- HTTP `PUT` and `DELETE` helpers
+
 ## 0.1.0
 
 ### Added

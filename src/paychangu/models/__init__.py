@@ -5,6 +5,7 @@ from .card import CardCharge
 from .charge import BankTransferCharge, MobileMoneyCharge
 from .payment import Payment
 from .payout import BankPayout, MobileMoneyPayout, Payout
+from .virtual_account import ConnectAuthorizeParams, VirtualCustomer
 
 __all__ = [
     "AirtimePurchase",
@@ -13,8 +14,10 @@ __all__ = [
     "BillPayment",
     "BillValidation",
     "CardCharge",
+    "ConnectAuthorizeParams",
     "MobileMoneyCharge",
     "MobileMoneyPayout",
     "Payment",
     "Payout",
+    "VirtualCustomer",
 ]
